@@ -17,12 +17,15 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Function to run database migrations on startup
+// Function to run database migrations on startup with stylized logs
 async function runStartupMigrations() {
   const connectionString = process.env.DATABASE_URL;
 
   if (!connectionString) {
-    console.warn('Warning: DATABASE_URL is missing. Skipping startup migrations.');
+    console.log('\n==================================================');
+    console.warn('  ⚠️  Warning: DATABASE_URL is missing.');
+    console.warn('  Skipping startup migrations.');
+    console.log('==================================================\n');
     return;
   }
 
@@ -32,13 +35,21 @@ async function runStartupMigrations() {
   });
   
   try {
-    console.log('Connecting to database to run migrations...');
+    console.log('\n==================================================');
+    console.log('         DATABASE MIGRATION SYSTEM                ');
+    console.log('==================================================');
+    console.log('⏳ Connecting to database...');
     await client.connect();
+    console.log('✅ Connected successfully.');
 
     const migrationsDir = path.join(__dirname, '../supabase/migrations');
     
     if (!fs.existsSync(migrationsDir)) {
-      console.warn(`Migration directory not found at: ${migrationsDir}. Skipping migrations.`);
+      console.log('--------------------------------------------------');
+      console.warn(`⚠️ Migration directory not found at:`);
+      console.warn(`  ${migrationsDir}`);
+      console.warn('  Skipping migrations.');
+      console.log('==================================================\n');
       return;
     }
 
@@ -48,11 +59,12 @@ async function runStartupMigrations() {
       const { rows } = await client.query('SELECT name FROM migrations;');
       appliedBefore = new Set(rows.map(r => r.name));
     } catch (e) {
-      // The migrations table might not exist yet if it's the first run
-      console.log('Migrations table not found. It will be created by the migration runner.');
+      console.log('ℹ️ Migrations table not found. It will be created now.');
     }
 
-    console.log('Checking and running pending migrations...');
+    console.log('--------------------------------------------------');
+    console.log('🔍 Checking and running pending migrations...');
+    console.log('--------------------------------------------------');
     await migrate({ client }, migrationsDir);
 
     // Check applied migrations after run to log exactly which ones were newly applied
@@ -61,19 +73,23 @@ async function runStartupMigrations() {
     let appliedCount = 0;
     for (const row of rowsAfter) {
       if (!appliedBefore.has(row.name)) {
-        console.log(`Migration applied successfully: ${row.name}`);
+        console.log(`🚀 [APPLIED] ${row.name}`);
         appliedCount++;
       }
     }
 
+    console.log('--------------------------------------------------');
     if (appliedCount === 0) {
-      console.log('No new migrations to apply. Database is up to date.');
+      console.log('✨ No new migrations to apply. Database is up to date.');
     } else {
-      console.log(`Successfully applied ${appliedCount} new migration(s).`);
+      console.log(`🎉 Success! Applied ${appliedCount} new migration(s).`);
     }
+    console.log('==================================================\n');
 
   } catch (err: any) {
-    console.error('Failed to run database migrations:', err.message || err);
+    console.log('--------------------------------------------------');
+    console.error('❌ Failed to run database migrations:', err.message || err);
+    console.log('==================================================\n');
     process.exit(1); // Exit process if migrations fail to prevent running in a corrupted state
   } finally {
     await client.end();
