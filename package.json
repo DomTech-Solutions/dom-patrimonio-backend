@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "nodemon src/index.ts",
     "build": "tsc",
-    "start": "pm2 start dist/index.js --name dom-patrimonio-backend",
-    "stop": "pm2 stop dom-patrimonio-backend"
+    "start": "pm2 start dist/index.js --name dom-patrimonio-api",
+    "stop": "pm2 stop dom-patrimonio-api"
   },
   "repository": {
     "type": "git",
