@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { supabase } from './config/supabaseClient';
 
 dotenv.config();
 
@@ -12,12 +13,41 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Register health route
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
+// Register health route with Supabase connectivity check
+app.get('/health', async (req, res) => {
+  let supabaseStatus = 'online';
+  let supabaseError = null;
+
+  try {
+    // Tenta uma consulta dummy rápida no Supabase
+    const { error } = await supabase.from('_connection_test').select('*').limit(0);
+    
+    if (error) {
+      // Se houver erro, mas for apenas relação inexistente ou cache de schema, a rede está funcionando!
+      // PGRST205/PGRST116 = no rows/schema cache, 42P01 = undefined table, PGRST301 = JWT token expired, etc.
+      // Se o erro tiver um código PostgREST (geralmente começa com 'PGRST' ou '42' de Postgres), a API está online!
+      const isPostgrestError = error.code && (error.code.startsWith('PGRST') || error.code.startsWith('42') || error.code === '42000' || error.code === '42P01');
+      
+      if (!isPostgrestError) {
+        supabaseStatus = 'offline';
+        supabaseError = error.message;
+      }
+    }
+  } catch (err: any) {
+    supabaseStatus = 'offline';
+    supabaseError = err.message || err;
+  }
+
+  const isDegraded = supabaseStatus === 'offline';
+
+  res.status(200).json({
+    status: isDegraded ? 'degraded' : 'ok',
     app: 'Dom Património Backend',
-    timestamp: new Date()
+    timestamp: new Date(),
+    services: {
+      supabase: supabaseStatus,
+      ...(isDegraded && { error: supabaseError })
+    }
   });
 });
 
