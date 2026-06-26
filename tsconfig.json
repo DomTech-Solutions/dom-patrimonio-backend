@@ -46,6 +46,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "knexfile.ts"
+    "scripts"
   ]
 }
